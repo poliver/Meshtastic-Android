@@ -97,9 +97,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
@@ -152,6 +149,7 @@ class MeshService :
     @Inject lateinit var serviceNotifications: MeshServiceNotifications
 
     @Inject lateinit var meshPrefs: MeshPrefs
+    @Inject lateinit var lastAddressUpdater: LastAddressUpdater
 
     companion object : Logging {
 
@@ -353,8 +351,6 @@ class MeshService :
 
     override fun onCreate() {
         super.onCreate()
-
-        _lastAddress.value = meshPrefs.deviceAddress ?: NO_DEVICE_SELECTED
 
         info("Creating mesh service")
         serviceNotifications.initChannels()
@@ -2105,52 +2101,12 @@ class MeshService :
         rememberReaction(packet.copy { from = myNodeNum })
     }
 
-    private val _lastAddress: MutableStateFlow<String?> = MutableStateFlow(null)
-    val lastAddress: StateFlow<String?>
-        get() = _lastAddress.asStateFlow()
-
-    fun clearDatabases() = serviceScope.handledLaunch {
-        debug("Clearing nodeDB")
-        radioConfigRepository.clearNodeDB()
-    }
-
-    private fun updateLastAddress(deviceAddr: String?) {
-        debug("setDeviceAddress: Passing through device change to radio service: ${deviceAddr.anonymize}")
-        when (deviceAddr) {
-            null,
-            "",
-            -> {
-                debug("SetDeviceAddress: No previous device address, setting new one")
-                _lastAddress.value = deviceAddr
-                meshPrefs.deviceAddress = deviceAddr
-            }
-
-            lastAddress.value,
-            NO_DEVICE_SELECTED,
-            -> {
-                debug("SetDeviceAddress: Device address is the none or same, ignoring")
-            }
-
-            else -> {
-                debug("SetDeviceAddress: Device address changed from $lastAddress to $deviceAddr")
-                _lastAddress.value = deviceAddr
-                meshPrefs.deviceAddress = deviceAddr
-                clearDatabases()
-                clearNotifications()
-            }
-        }
-    }
-
-    private fun clearNotifications() {
-        serviceNotifications.clearNotifications()
-    }
-
     private val binder =
         object : IMeshService.Stub() {
 
             override fun setDeviceAddress(deviceAddr: String?) = toRemoteExceptions {
                 debug("Passing through device change to radio service: ${deviceAddr.anonymize}")
-                updateLastAddress(deviceAddr)
+                lastAddressUpdater.updateLastAddress(deviceAddr, serviceScope)
                 val res = radioInterfaceService.setDeviceAddress(deviceAddr)
                 if (res) {
                     discardNodeDB()

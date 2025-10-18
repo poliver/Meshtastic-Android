@@ -95,6 +95,14 @@ class ServiceRepository @Inject constructor() {
         }
     }
 
+    private val _connectionProgress = MutableStateFlow(0f)
+    val connectionProgress: StateFlow<Float>
+        get() = _connectionProgress
+
+    fun setConnectionProgress(progress: Float) {
+        _connectionProgress.value = progress
+    }
+
     private val _meshPacketFlow = MutableSharedFlow<MeshPacket>()
     val meshPacketFlow: SharedFlow<MeshPacket>
         get() = _meshPacketFlow

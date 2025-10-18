@@ -18,17 +18,22 @@
 package com.geeksville.mesh.ui.connections
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.geeksville.mesh.repository.bluetooth.BluetoothRepository
 import com.geeksville.mesh.repository.radio.RadioInterfaceService
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import org.meshtastic.core.data.repository.NodeRepository
 import org.meshtastic.core.data.repository.RadioConfigRepository
 import org.meshtastic.core.database.entity.MyNodeEntity
 import org.meshtastic.core.database.model.Node
 import org.meshtastic.core.prefs.ui.UiPrefs
+import org.meshtastic.core.service.ConnectionState
 import org.meshtastic.core.service.ServiceRepository
 import org.meshtastic.core.ui.viewmodel.stateInWhileSubscribed
 import org.meshtastic.proto.LocalOnlyProtos.LocalConfig
@@ -45,6 +50,16 @@ constructor(
     bluetoothRepository: BluetoothRepository,
     private val uiPrefs: UiPrefs,
 ) : ViewModel() {
+
+    private val _connectionProgress = MutableStateFlow(0f)
+    val connectionProgress = _connectionProgress.asStateFlow()
+
+    init {
+        serviceRepository.connectionProgress.onEach {
+            _connectionProgress.value = it
+        }.launchIn(viewModelScope)
+    }
+
     fun onStart() {
         radioInterfaceService.setRssiPolling(true)
     }

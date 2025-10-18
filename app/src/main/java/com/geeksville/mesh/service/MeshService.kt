@@ -1273,6 +1273,7 @@ class MeshService : Service() {
         fun startConnect() {
             // Do our startup init
             try {
+                onConnectionChanged(ConnectionState.CONNECTING)
                 connectTimeMsec = System.currentTimeMillis()
                 startConfig()
             } catch (ex: InvalidProtocolBufferException) {
@@ -1304,6 +1305,7 @@ class MeshService : Service() {
         connectionStateHolder.setState(c)
         when (c) {
             ConnectionState.CONNECTED -> startConnect()
+            ConnectionState.CONNECTING -> {}
             ConnectionState.DEVICE_SLEEP -> startDeviceSleep()
             ConnectionState.DISCONNECTED -> startDisconnect()
         }
@@ -1315,7 +1317,7 @@ class MeshService : Service() {
         val notificationSummary =
             when (connectionStateHolder.getState()) {
                 ConnectionState.CONNECTED -> getString(R.string.connected_count).format(numOnlineNodes)
-
+                ConnectionState.CONNECTING -> getString(R.string.connecting_to_device)
                 ConnectionState.DISCONNECTED -> getString(R.string.disconnected)
                 ConnectionState.DEVICE_SLEEP -> getString(R.string.device_sleeping)
             }
@@ -1342,6 +1344,7 @@ class MeshService : Service() {
                     }
 
                 ConnectionState.DISCONNECTED -> ConnectionState.DISCONNECTED
+                else -> newState
             }
         onConnectionChanged(effectiveState)
     }
@@ -1431,6 +1434,7 @@ class MeshService : Service() {
         setLocalConfig(config)
         val configCount = localConfig.allFields.size
         serviceRepository.setStatusMessage("Device config ($configCount / $configTotal)")
+        serviceRepository.setConnectionProgress(configCount.toFloat() / configTotal.toFloat())
     }
 
     private fun handleModuleConfig(config: ModuleConfigProtos.ModuleConfig) {
@@ -1447,6 +1451,7 @@ class MeshService : Service() {
         setLocalModuleConfig(config)
         val moduleCount = moduleConfig.allFields.size
         serviceRepository.setStatusMessage("Module config ($moduleCount / $moduleTotal)")
+        serviceRepository.setConnectionProgress(moduleCount.toFloat() / moduleTotal.toFloat())
     }
 
     private fun handleChannel(ch: ChannelProtos.Channel) {
@@ -1463,6 +1468,7 @@ class MeshService : Service() {
         if (ch.role != ChannelProtos.Channel.Role.DISABLED) updateChannelSettings(ch)
         val maxChannels = myNodeInfo?.maxChannels ?: 8
         serviceRepository.setStatusMessage("Channels (${ch.index + 1} / $maxChannels)")
+        serviceRepository.setConnectionProgress((ch.index + 1).toFloat() / maxChannels.toFloat())
     }
 
     /** Convert a protobuf NodeInfo into our model objects and update our node DB */
@@ -1507,6 +1513,7 @@ class MeshService : Service() {
         }
     }
 
+    private var nodesTotal = 0
     private fun handleNodeInfo(info: MeshProtos.NodeInfo) {
         Timber.d(
             "Received nodeinfo num=${info.num}," +
@@ -1526,7 +1533,8 @@ class MeshService : Service() {
         insertMeshLog(packetToSave)
 
         newNodes.add(info)
-        serviceRepository.setStatusMessage("Nodes (${newNodes.size})")
+        serviceRepository.setStatusMessage("Nodes (${newNodes.size} / $nodesTotal)")
+        serviceRepository.setConnectionProgress(newNodes.size.toFloat() / nodesTotal.toFloat())
     }
 
     private var rawMyNodeInfo: MeshProtos.MyNodeInfo? = null
@@ -1591,6 +1599,7 @@ class MeshService : Service() {
 
         rawMyNodeInfo = myInfo
         regenMyNodeInfo()
+        nodesTotal = myInfo.numNodes
 
         // We'll need to get a new set of channels and settings now
         serviceScope.handledLaunch {

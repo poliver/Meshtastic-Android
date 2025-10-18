@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -34,6 +35,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Language
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -156,7 +158,7 @@ fun ConnectionsScreen(
             ConnectionState.CONNECTED -> {
                 if (regionUnset) R.string.must_set_region else R.string.connected
             }
-
+            ConnectionState.CONNECTING -> R.string.connecting_to_device
             ConnectionState.DISCONNECTED -> R.string.not_connected
             ConnectionState.DEVICE_SLEEP -> R.string.connected_sleeping
         }.let { scanModel.setErrorText(context.getString(it)) }
@@ -185,6 +187,19 @@ fun ConnectionsScreen(
                         .padding(paddingValues)
                         .padding(16.dp),
                 ) {
+                    AnimatedVisibility(
+                        visible = connectionState == ConnectionState.CONNECTING,
+                        modifier = Modifier.padding(bottom = 16.dp),
+                    ) {
+                        val connectionProgress by connectionsViewModel.connectionProgress.collectAsStateWithLifecycle()
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(text = stringResource(id = R.string.connecting_to_device))
+                            LinearProgressIndicator(
+                                modifier = Modifier.fillMaxWidth(),
+                                progress = { connectionProgress },
+                            )
+                        }
+                    }
                     AnimatedVisibility(
                         visible = connectionState.isConnected(),
                         modifier = Modifier.padding(bottom = 16.dp),

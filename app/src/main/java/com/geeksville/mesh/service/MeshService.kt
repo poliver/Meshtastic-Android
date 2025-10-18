@@ -1599,7 +1599,7 @@ class MeshService : Service() {
 
         rawMyNodeInfo = myInfo
         regenMyNodeInfo()
-        nodesTotal = myInfo.numNodes
+    nodesTotal = myInfo.nodedbCount
 
         // We'll need to get a new set of channels and settings now
         serviceScope.handledLaunch {
